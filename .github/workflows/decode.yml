@@ -1,0 +1,40 @@
+name: Decodificar icones
+
+on:
+  push:
+    paths:
+      - "_b64/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+
+jobs:
+  decode:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Converter .b64 em PNG
+        run: |
+          shopt -s nullglob
+          files=(_b64/*.b64)
+          if [ ${#files[@]} -eq 0 ]; then exit 0; fi
+          for f in "${files[@]}"; do
+            name=$(basename "$f" .b64)
+            tr -d '\n\r ' < "$f" | base64 -d > "$name"
+          done
+          git rm -rq _b64
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Decodifica icones PNG"
+          git push
+
+      - name: Tentar ativar GitHub Pages (main, raiz)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api -X POST "repos/${{ github.repository }}/pages" -f "source[branch]=main" -f "source[path]=/" || true
